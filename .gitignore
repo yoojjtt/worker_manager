@@ -49,3 +49,6 @@ app.*.map.json
 /linux/
 /macos/
 /windows/
+
+# bkit
+.bkit/
