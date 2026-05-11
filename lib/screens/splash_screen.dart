@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../services/auth_service.dart';
+import 'home_screen.dart';
 import 'login_screen.dart';
 
+// Design Ref: §6.1 — SplashScreen 자동로그인 체크 추가
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -27,11 +30,33 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.forward();
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
+        _checkAutoLogin();
       }
     });
+  }
+
+  // Plan SC: SC-03 — 자동로그인 체크
+  Future<void> _checkAutoLogin() async {
+    try {
+      final saved = await AuthService().getAutoLogin();
+      if (saved.username != null && saved.password != null) {
+        final result =
+            await AuthService().login(saved.username!, saved.password!);
+        if (!mounted) return;
+        if (result.success) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+          );
+          return;
+        }
+        await AuthService().clearAutoLogin();
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
   }
 
   @override
@@ -48,7 +73,6 @@ class _SplashScreenState extends State<SplashScreen>
         child: Column(
           children: [
             const Spacer(flex: 3),
-            // 아이콘
             Container(
               width: 88,
               height: 88,
@@ -63,7 +87,6 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
             const SizedBox(height: 24),
-            // LINKER 타이틀
             const Text(
               'LINKER',
               style: TextStyle(
@@ -74,7 +97,6 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
             const SizedBox(height: 16),
-            // 한국어 슬로건
             const Text(
               '전통적인 신뢰 위에 첨단 기술을 더하다',
               style: TextStyle(
@@ -84,7 +106,6 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
             const SizedBox(height: 8),
-            // 영문 슬로건
             const Text(
               'PRECISION HUMAN SCALE WORKFORCE\nMANAGEMENT',
               textAlign: TextAlign.center,
@@ -96,14 +117,12 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
             const Spacer(flex: 3),
-            // 프로그레스 영역
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
               child: AnimatedBuilder(
                 animation: _progressAnimation,
                 builder: (context, child) {
-                  final percent =
-                      (_progressAnimation.value * 100).toInt();
+                  final percent = (_progressAnimation.value * 100).toInt();
                   return Column(
                     children: [
                       Row(
@@ -146,7 +165,6 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
             const SizedBox(height: 24),
-            // 하단 텍스트
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
