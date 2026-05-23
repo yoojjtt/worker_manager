@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../services/fcm_service.dart';
 import 'my_info/my_info_screen.dart';
+import 'notification_list_screen.dart';
 
 // Design Ref: §6.5 — HomeScreen with BottomNavigationBar (홈/내정보 2탭)
 class HomeScreen extends StatefulWidget {
@@ -62,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.only(right: 4),
             child: Center(
               child: Text(
                 '${user?.userName ?? ''} 님',
@@ -74,6 +76,33 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
+          ValueListenableBuilder<int>(
+            valueListenable: FcmService().unreadCount,
+            builder: (context, count, _) {
+              return IconButton(
+                icon: Badge(
+                  isLabelVisible: count > 0,
+                  label: Text(
+                    count > 99 ? '99+' : '$count',
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                  child: const Icon(
+                    Icons.notifications_outlined,
+                    color: Color(0xFF1B2E5C),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationListScreen(),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: _pages[_currentIndex],
