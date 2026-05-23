@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "369094271595",
+    "project_id": "linker-worker-manager",
+    "storage_bucket": "linker-worker-manager.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:369094271595:android:2e00e94b1eb0a04855472e",
+        "android_client_info": {
+          "package_name": "com.linkerlab.workermanager"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDGqvx1N7Bb7eWThCaj-CjgLyvW0iXbp-0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
