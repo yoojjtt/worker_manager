@@ -1,4 +1,4 @@
-package com.example.worker_manager
+package com.linkerlab.workermanager
 
 import io.flutter.embedding.android.FlutterActivity
 
