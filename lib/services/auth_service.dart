@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../config/api_config.dart';
 import '../models/user_model.dart';
 import 'api_service.dart';
+import 'fcm_service.dart';
 
 // Design Ref: §5.3 — 싱글톤 AuthService, 자격증명 메모리 보관 (로그아웃 API 필요)
 class AuthService {
@@ -30,6 +32,21 @@ class AuthService {
       currentUser = UserModel.fromJson(list[0] as Map<String, dynamic>);
       _username = username;
       _password = password;
+
+      // Design Ref: §6.1 — 로그인 성공 후 FCM 토큰 서버 등록
+      // Plan SC: SC-01
+      try {
+        final pushEnabled = await FcmService().getPushEnabled();
+        if (pushEnabled) {
+          await FcmService().registerToken(
+            currentUser!.userId,
+            int.parse(currentUser!.companyKey),
+          );
+        }
+      } catch (e) {
+        debugPrint('FCM 토큰 등록 실패: $e');
+      }
+
       return (success: true, message: '');
     }
     return (success: false, message: _loginErrorMessage(data['resultCode']));

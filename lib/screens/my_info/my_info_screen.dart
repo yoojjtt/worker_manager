@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../config/api_config.dart';
 import '../../models/user_model.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/fcm_service.dart';
 import '../../widgets/loading_overlay.dart';
 import '../login_screen.dart';
 import 'change_password_screen.dart';
@@ -20,11 +22,43 @@ class MyInfoScreen extends StatefulWidget {
 class _MyInfoScreenState extends State<MyInfoScreen> {
   bool _isLoading = false;
   UserModel? _user;
+  bool _pushEnabled = true;
 
   @override
   void initState() {
     super.initState();
     _loadMyInfo();
+    _loadPushSetting();
+  }
+
+  Future<void> _loadPushSetting() async {
+    final enabled = await FcmService().getPushEnabled();
+    if (mounted) setState(() => _pushEnabled = enabled);
+  }
+
+  // Design Ref: §5.3 — 알림 ON/OFF 토글 처리
+  // Plan SC: SC-03, SC-04
+  Future<void> _onPushToggle(bool value) async {
+    final previous = _pushEnabled;
+    setState(() {
+      _pushEnabled = value;
+      _isLoading = true;
+    });
+    try {
+      await FcmService().setPushEnabled(value);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _pushEnabled = previous);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('알림 설정 변경에 실패했습니다.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _loadMyInfo() async {
@@ -266,6 +300,79 @@ class _MyInfoScreenState extends State<MyInfoScreen> {
                       _buildInfoRow(
                           '예금주', user.userBankHolder ?? '-'),
                     ]),
+                    const SizedBox(height: 12),
+
+                    // Design Ref: §5.2 — 알림 설정 섹션
+                    _buildSection('알림 설정', [
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 72,
+                            child: Text(
+                              '푸시 알림',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          Switch.adaptive(
+                            value: _pushEnabled,
+                            activeTrackColor: const Color(0xFF1B2E5C),
+                            onChanged: _isLoading ? null : _onPushToggle,
+                          ),
+                        ],
+                      ),
+                      Text(
+                        _pushEnabled
+                            ? '업무 알림을 수신합니다.'
+                            : '알림이 꺼져 있습니다.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade400,
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 12),
+
+                    // FCM 토큰 (디버깅용)
+                    FutureBuilder<String?>(
+                      future: FcmService().getToken(),
+                      builder: (context, snapshot) {
+                        final token = snapshot.data ?? '토큰 없음';
+                        return _buildSection('FCM 토큰', [
+                          GestureDetector(
+                            onTap: () {
+                              // ignore: deprecated_member_use
+                              Clipboard.setData(ClipboardData(text: token));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('토큰이 복사되었습니다.'),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
+                            child: Text(
+                              token,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey.shade500,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '탭하면 복사됩니다',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade400,
+                            ),
+                          ),
+                        ]);
+                      },
+                    ),
                     const SizedBox(height: 24),
 
                     // 비밀번호 변경

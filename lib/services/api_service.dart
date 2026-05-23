@@ -29,4 +29,46 @@ class ApiService {
       throw Exception('서버 응답이 없습니다. 잠시 후 다시 시도해주세요.');
     }
   }
+
+  // Design Ref: §3.2 — GET 요청 (query parameter 방식)
+  static Future<Map<String, dynamic>> get(
+    String endpoint, {
+    Map<String, String>? params,
+  }) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}$endpoint')
+        .replace(queryParameters: params);
+    try {
+      final response = await http
+          .get(url, headers: {'Content-Type': 'application/json'})
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      throw Exception('서버 오류: ${response.statusCode}');
+    } on TimeoutException {
+      throw Exception('서버 응답이 없습니다. 잠시 후 다시 시도해주세요.');
+    }
+  }
+
+  // Design Ref: §3.2 — PUT 요청 (query parameter 방식)
+  static Future<Map<String, dynamic>> put(
+    String endpoint, {
+    Map<String, String>? params,
+  }) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}$endpoint')
+        .replace(queryParameters: params);
+    try {
+      final response = await http
+          .put(url, headers: {'Content-Type': 'application/json'})
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      throw Exception('서버 오류: ${response.statusCode}');
+    } on TimeoutException {
+      throw Exception('서버 응답이 없습니다. 잠시 후 다시 시도해주세요.');
+    }
+  }
 }

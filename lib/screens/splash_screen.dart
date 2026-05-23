@@ -4,7 +4,6 @@ import '../services/auth_service.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
 
-// Design Ref: §6.1 — SplashScreen 자동로그인 체크 추가
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -13,29 +12,72 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+    with TickerProviderStateMixin {
+  late AnimationController _fadeController;
+  late AnimationController _progressController;
+  late Animation<double> _logoFade;
+  late Animation<double> _textFade;
+  late Animation<double> _subtitleFade;
+  late Animation<double> _bottomFade;
   late Animation<double> _progressAnimation;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+
+    // 페이드인 애니메이션 (2초)
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+
+    _logoFade = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _fadeController,
+        curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
+      ),
+    );
+
+    _textFade = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _fadeController,
+        curve: const Interval(0.2, 0.6, curve: Curves.easeOut),
+      ),
+    );
+
+    _subtitleFade = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _fadeController,
+        curve: const Interval(0.4, 0.8, curve: Curves.easeOut),
+      ),
+    );
+
+    _bottomFade = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _fadeController,
+        curve: const Interval(0.6, 1.0, curve: Curves.easeOut),
+      ),
+    );
+
+    // 프로그레스바 (3초)
+    _progressController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
     );
-    _progressAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    _progressAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _progressController, curve: Curves.easeInOut),
     );
-    _controller.forward();
-    _controller.addStatusListener((status) {
+
+    _fadeController.forward();
+    _progressController.forward();
+
+    _progressController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         _checkAutoLogin();
       }
     });
   }
 
-  // Plan SC: SC-03 — 자동로그인 체크
   Future<void> _checkAutoLogin() async {
     try {
       final saved = await AuthService().getAutoLogin();
@@ -61,128 +103,162 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _fadeController.dispose();
+    _progressController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F7),
+      backgroundColor: const Color(0xFF1B2E5C),
       body: SafeArea(
         child: Column(
           children: [
             const Spacer(flex: 3),
-            Container(
-              width: 88,
-              height: 88,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1B2E5C),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Icon(
-                Icons.build_rounded,
-                color: Colors.white,
-                size: 48,
+
+            // 로고 아이콘 (페이드인)
+            FadeTransition(
+              opacity: _logoFade,
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.build_rounded,
+                  color: Colors.white,
+                  size: 52,
+                ),
               ),
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'LINKER',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF1B2E5C),
-                letterSpacing: 2,
+            const SizedBox(height: 28),
+
+            // LINKER 타이틀 (페이드인)
+            FadeTransition(
+              opacity: _textFade,
+              child: const Text(
+                'LINKER.',
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 3,
+                ),
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              '전통적인 신뢰 위에 첨단 기술을 더하다',
-              style: TextStyle(
-                fontSize: 15,
-                color: Color(0xFF3A3A3A),
-                fontWeight: FontWeight.w500,
+
+            // 서브타이틀 (페이드인)
+            FadeTransition(
+              opacity: _subtitleFade,
+              child: Column(
+                children: [
+                  Text(
+                    '전통적인 신뢰 위에 첨단 기술을 더하다',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'PRECISION HUMAN SCALE WORKFORCE\nMANAGEMENT',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.5),
+                      letterSpacing: 1.5,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'PRECISION HUMAN SCALE WORKFORCE\nMANAGEMENT',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFF8A8A8A),
-                letterSpacing: 1.5,
-                height: 1.5,
-              ),
-            ),
+
             const Spacer(flex: 3),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: AnimatedBuilder(
-                animation: _progressAnimation,
-                builder: (context, child) {
-                  final percent = (_progressAnimation.value * 100).toInt();
-                  return Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'SYSTEM INITIALIZING',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1B2E5C),
-                              letterSpacing: 0.5,
+
+            // 하단 프로그레스바 (페이드인)
+            FadeTransition(
+              opacity: _bottomFade,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: AnimatedBuilder(
+                  animation: _progressAnimation,
+                  builder: (context, child) {
+                    final percent = (_progressAnimation.value * 100).toInt();
+                    return Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'SYSTEM INITIALIZING',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white.withValues(alpha: 0.7),
+                                letterSpacing: 0.5,
+                              ),
                             ),
-                          ),
-                          Text(
-                            '$percent%',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF3A3A3A),
+                            Text(
+                              '$percent%',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white.withValues(alpha: 0.7),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: _progressAnimation.value,
-                          minHeight: 6,
-                          backgroundColor: const Color(0xFFE0E0E0),
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF1B5EC8),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: _progressAnimation.value,
+                            minHeight: 4,
+                            backgroundColor: Colors.white.withValues(alpha: 0.15),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white.withValues(alpha: 0.8),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  );
-                },
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
             const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.settings_outlined,
-                  size: 14,
-                  color: Colors.grey.shade500,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'ENTERPRISE GRADE INFRASTRUCTURE',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade500,
-                    letterSpacing: 1.2,
+
+            FadeTransition(
+              opacity: _bottomFade,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.settings_outlined,
+                    size: 13,
+                    color: Colors.white.withValues(alpha: 0.4),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Text(
+                    'ENTERPRISE GRADE INFRASTRUCTURE',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.white.withValues(alpha: 0.4),
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 40),
           ],

@@ -42,9 +42,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1B2E5C)),
       ),
       home: const SplashScreen(),
-      routes: {
-        '/notifications': (_) => const NotificationListScreen(),
-      },
+      routes: {'/notifications': (_) => const NotificationListScreen()},
     );
   }
 }
