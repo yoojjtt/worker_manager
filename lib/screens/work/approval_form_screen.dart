@@ -96,10 +96,9 @@ class _ApprovalFormScreenState extends State<ApprovalFormScreen> {
     try {
       final data =
           await InvoiceService.getDetail('${widget.invoiceSeq}');
-      if (data['resultCode'] == '200') {
-        final res = data['res'] as Map<String, dynamic>;
-        final header = res['header'] as Map<String, dynamic>;
-        final items = res['items'] as List?;
+      if (data['resultCode'] == '200' && data['res'] != null) {
+        final header = Map<String, dynamic>.from(data['res'] as Map);
+        final items = header['items'] as List?;
 
         _titleCtrl.text = header['title'] ?? '';
         _vendorNameCtrl.text = header['vendor_name'] ?? '';
@@ -124,7 +123,7 @@ class _ApprovalFormScreenState extends State<ApprovalFormScreen> {
         if (items != null) {
           _items = items
               .map((e) =>
-                  InvoiceItemModel.fromJson(e as Map<String, dynamic>))
+                  InvoiceItemModel.fromJson(Map<String, dynamic>.from(e as Map)))
               .toList();
         }
       }
@@ -240,6 +239,7 @@ class _ApprovalFormScreenState extends State<ApprovalFormScreen> {
             '${_transactionDate.year}-${_transactionDate.month.toString().padLeft(2, '0')}-${_transactionDate.day.toString().padLeft(2, '0')}',
         'invoice_month':
             '${_transactionDate.year}-${_transactionDate.month.toString().padLeft(2, '0')}',
+        'status': 'DRAFT',
         'create_ID': user.userId,
         'items': _items.map((e) => e.toJson()).toList(),
       };

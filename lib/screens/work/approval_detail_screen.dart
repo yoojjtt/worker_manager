@@ -32,16 +32,41 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     try {
       final data =
           await InvoiceService.getDetail('${widget.invoiceSeq}');
-      if (data['resultCode'] == '200') {
-        final res = data['res'] as Map<String, dynamic>;
-        final header = res['header'] as Map<String, dynamic>;
-        final items = res['items'] as List?;
-        if (items != null) header['items'] = items;
-        _invoice = InvoiceModel.fromJson(header);
-      }
+      if (data['resultCode'] == '200' && data['res'] != null) {
+        final res = Map<String, dynamic>.from(data['res'] as Map);
 
-      _approvalHistory =
-          await InvoiceService.getApprovalHistory('${widget.invoiceSeq}');
+        // hyunjang_name이 없으면 현장 목록에서 매칭
+        if (res['hyunjang_name'] == null && res['hyunjang_key'] != null) {
+          final user = AuthService().currentUser;
+          if (user != null) {
+            try {
+              final list = await InvoiceService.getHyunjangList(user.companyKey);
+              final match = list.where(
+                (h) => h['seq'].toString() == res['hyunjang_key'].toString(),
+              ).firstOrNull;
+              if (match != null) {
+                res['hyunjang_name'] = match['hyunjang_name'];
+              }
+            } catch (_) {}
+          }
+        }
+
+        _invoice = InvoiceModel.fromJson(res);
+
+        // approvalHistory가 응답에 포함되어 있으면 사용
+        final history = res['approvalHistory'];
+        if (history is List && history.isNotEmpty) {
+          _approvalHistory = history
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+        } else {
+          _approvalHistory =
+              await InvoiceService.getApprovalHistory('${widget.invoiceSeq}');
+        }
+      } else {
+        _approvalHistory =
+            await InvoiceService.getApprovalHistory('${widget.invoiceSeq}');
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -136,25 +161,60 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
                       _buildHeader(),
                       const SizedBox(height: 12),
 
-                      // 이미지
+                      // 이미지 (탭하면 전체화면 확대 가능)
                       if (_invoice!.imagePath != null)
-                        Container(
-                          width: double.infinity,
-                          height: 200,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              _invoice!.imagePath!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Center(
-                                child: Icon(Icons.broken_image,
-                                    size: 48, color: Colors.grey.shade300),
-                              ),
+                        GestureDetector(
+                          onTap: () => _showFullImage(_invoice!.imagePath!),
+                          child: Container(
+                            width: double.infinity,
+                            height: 200,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    height: 200,
+                                    child: Image.network(
+                                      _invoice!.imagePath!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Center(
+                                        child: Icon(Icons.broken_image,
+                                            size: 48, color: Colors.grey.shade300),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  right: 8,
+                                  bottom: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black54,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.zoom_in,
+                                            size: 14, color: Colors.white),
+                                        SizedBox(width: 4),
+                                        Text('확대',
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.white)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -444,6 +504,37 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showFullImage(String imageUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            iconTheme: const IconThemeData(color: Colors.white),
+            elevation: 0,
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.broken_image,
+                  size: 64,
+                  color: Colors.white54,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

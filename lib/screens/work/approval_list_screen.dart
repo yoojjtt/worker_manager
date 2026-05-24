@@ -25,6 +25,7 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
   final _filters = const [
     {'label': '전체', 'value': null},
     {'label': '임시저장', 'value': 'DRAFT'},
+    {'label': '확인완료', 'value': 'CONFIRMED'},
     {'label': '결재요청', 'value': 'REQUESTED'},
     {'label': '승인', 'value': 'APPROVED'},
     {'label': '반려', 'value': 'REJECTED'},
@@ -53,6 +54,7 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
 
       final data = await InvoiceService.getList(
         companyKey: user.companyKey,
+        createId: user.userId,
         status: _statusFilter,
         offset: _offset,
         size: _size,
@@ -62,9 +64,9 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
         final raw = data['res'];
         if (raw is Map) {
           final res = Map<String, dynamic>.from(raw);
-          final resultModel = res['resultModel'];
-          if (resultModel is List) {
-            final list = resultModel
+          final items = res['data'] ?? res['resultModel'] ?? res['list'];
+          if (items is List) {
+            final list = items
                 .map((e) => InvoiceModel.fromJson(
                     Map<String, dynamic>.from(e as Map)))
                 .toList();
@@ -254,6 +256,16 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (invoice.hyunjangName != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      invoice.hyunjangName!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 4),
                   if (invoice.title != null)
                     Text(

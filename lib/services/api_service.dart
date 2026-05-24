@@ -99,4 +99,28 @@ class ApiService {
       throw Exception('서버 응답이 없습니다. 잠시 후 다시 시도해주세요.');
     }
   }
+
+  // PUT 요청 (JSON body 방식)
+  static Future<Map<String, dynamic>> putBody(
+    String endpoint,
+    Map<String, dynamic> body,
+  ) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}$endpoint');
+    try {
+      final response = await http
+          .put(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      throw Exception('서버 오류: ${response.statusCode}');
+    } on TimeoutException {
+      throw Exception('서버 응답이 없습니다. 잠시 후 다시 시도해주세요.');
+    }
+  }
 }

@@ -27,8 +27,7 @@ class InvoiceService {
   static Future<Map<String, dynamic>> updateInvoice(
     Map<String, dynamic> data,
   ) async {
-    // PUT이지만 서버가 PUT body를 받으므로 post 사용
-    return ApiService.post(ApiConfig.invoiceUpdate, data);
+    return ApiService.putBody(ApiConfig.invoiceUpdate, data);
   }
 
   // 상세 조회
@@ -39,6 +38,7 @@ class InvoiceService {
   // 목록 조회
   static Future<Map<String, dynamic>> getList({
     required String companyKey,
+    String? createId,
     String? invoiceMonth,
     String? status,
     String? srcWord,
@@ -50,6 +50,7 @@ class InvoiceService {
       'offset': offset,
       'size': size,
     };
+    if (createId != null) body['create_ID'] = createId;
     if (invoiceMonth != null) body['invoice_month'] = invoiceMonth;
     if (status != null) body['status'] = status;
     if (srcWord != null && srcWord.isNotEmpty) body['src_word'] = srcWord;
@@ -103,13 +104,18 @@ class InvoiceService {
       'offset': 0,
       'size': 100,
     });
-    if (data['resultCode'] == '200') {
+    if (data['resultCode'] == '200' && data['res'] != null) {
       final res = data['res'];
-      if (res is Map && res['resultModel'] != null) {
-        return (res['resultModel'] as List)
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
+      // 페이징 응답: { data: [...] } 또는 { resultModel: [...] }
+      if (res is Map) {
+        final model = res['data'] ?? res['resultModel'] ?? res['list'];
+        if (model is List) {
+          return model
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+        }
       }
+      // 직접 리스트 응답
       if (res is List) {
         return res.map((e) => Map<String, dynamic>.from(e as Map)).toList();
       }
@@ -124,10 +130,16 @@ class InvoiceService {
     final data = await ApiService.post(ApiConfig.accountCategoryAll, {
       'company_key': companyKey,
     });
-    if (data['resultCode'] == '200') {
+    if (data['resultCode'] == '200' && data['res'] != null) {
       final res = data['res'];
       if (res is List) {
         return res.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+      if (res is Map) {
+        final items = res['data'] ?? res['resultModel'] ?? res['list'];
+        if (items is List) {
+          return items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        }
       }
     }
     return [];
@@ -140,10 +152,16 @@ class InvoiceService {
     final data = await ApiService.post(ApiConfig.partnerFindAll, {
       'company_key': companyKey,
     });
-    if (data['resultCode'] == '200') {
+    if (data['resultCode'] == '200' && data['res'] != null) {
       final res = data['res'];
       if (res is List) {
         return res.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+      if (res is Map) {
+        final items = res['data'] ?? res['resultModel'] ?? res['list'];
+        if (items is List) {
+          return items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        }
       }
     }
     return [];
