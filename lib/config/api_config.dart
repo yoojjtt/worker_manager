@@ -18,4 +18,24 @@ class ApiConfig {
   static const String fcmTokenAccess = '/api/LB/fcm/token/access';
   static const String fcmTokenRead = '/api/LB/fcm/token/read';
   static const String fcmTokenDeactivate = '/api/LB/fcm/token/deactivate';
+
+  // FCM 발송 이력
+  static const String fcmLogMy = '/api/LB/fcm/log/my';
+
+  // 지급서 OCR + CRUD
+  static const String invoiceParse = '/api/vision/invoice/parse';
+  static const String invoiceSave = '/api/vision/invoice/save';
+  static const String invoiceUpdate = '/api/vision/invoice/update';
+  static const String invoiceDetail = '/api/vision/invoice/detail';
+  static const String invoiceList = '/api/vision/invoice/list';
+  static const String invoiceDelete = '/api/vision/invoice/delete';
+
+  // 결재 프로세스
+  static const String invoiceRequest = '/api/vision/invoice/request';
+  static const String invoiceApprovalHistory = '/api/vision/invoice/approvalHistory';
+
+  // 드롭다운 데이터
+  static const String hyunjangRead = '/api/LB/hyunjang/hyunjangRead';
+  static const String accountCategoryAll = '/api/LB/accounting/category/all';
+  static const String partnerFindAll = '/api/LB/accounting/partner/findAll';
 }

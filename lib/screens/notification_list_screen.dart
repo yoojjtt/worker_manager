@@ -1,6 +1,10 @@
+import 'dart:developer' as dev;
+
 import 'package:flutter/material.dart';
 
-import '../services/fcm_service.dart';
+import '../config/api_config.dart';
+import '../services/api_service.dart';
+import '../services/auth_service.dart';
 
 class NotificationListScreen extends StatefulWidget {
   const NotificationListScreen({super.key});
@@ -10,7 +14,76 @@ class NotificationListScreen extends StatefulWidget {
 }
 
 class _NotificationListScreenState extends State<NotificationListScreen> {
-  final _fcm = FcmService();
+  final List<Map<String, dynamic>> _logs = [];
+  bool _isLoading = false;
+  bool _hasMore = true;
+  int _offset = 0;
+  final int _size = 20;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLogs();
+  }
+
+  Future<void> _loadLogs({bool refresh = false}) async {
+    if (_isLoading) return;
+    if (!refresh && !_hasMore) return;
+
+    setState(() => _isLoading = true);
+
+    if (refresh) {
+      _offset = 0;
+      _logs.clear();
+      _hasMore = true;
+    }
+
+    try {
+      final user = AuthService().currentUser;
+      dev.log('[알림이력] currentUser: ${user?.userId}');
+      if (user == null) {
+        dev.log('[알림이력] 로그인 안 됨, return');
+        return;
+      }
+
+      dev.log('[알림이력] API 호출: user_id=${user.userId}, offset=$_offset');
+      final data = await ApiService.get(
+        ApiConfig.fcmLogMy,
+        params: {
+          'user_id': user.userId,
+          'app_type': 'WORKER_MANAGER',
+          'offset': '$_offset',
+          'size': '$_size',
+        },
+      );
+      dev.log('[알림이력] 응답: resultCode=${data['resultCode']}, res=${data['res']}');
+
+      if (data['resultCode'] == '200') {
+        final res = Map<String, dynamic>.from(data['res'] as Map);
+        final list = (res['list'] as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+        final total = res['totalRecords'] as int;
+        dev.log('[알림이력] 조회 성공: ${list.length}건, 전체 $total건');
+
+        _logs.addAll(list);
+        _offset += list.length;
+        _hasMore = _logs.length < total;
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('알림 이력 로드 실패: $e'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,26 +101,12 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           ),
         ),
         iconTheme: const IconThemeData(color: Color(0xFF1B2E5C)),
-        actions: [
-          if (_fcm.notifications.isNotEmpty)
-            TextButton(
-              onPressed: () {
-                _fcm.markAllAsRead();
-                setState(() {});
-              },
-              child: const Text(
-                '모두 읽음',
-                style: TextStyle(
-                  color: Color(0xFF1B2E5C),
-                  fontSize: 14,
-                ),
-              ),
-            ),
-        ],
       ),
-      body: _fcm.notifications.isEmpty
-          ? _buildEmpty()
-          : _buildList(),
+      body: _isLoading && _logs.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : _logs.isEmpty
+              ? _buildEmpty()
+              : _buildList(),
     );
   }
 
@@ -77,34 +136,30 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   }
 
   Widget _buildList() {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: _fcm.notifications.length,
-      itemBuilder: (context, index) {
-        final notification = _fcm.notifications[index];
-        return Dismissible(
-          key: Key(notification.id),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 20),
-            color: Colors.red.shade400,
-            child: const Icon(Icons.delete, color: Colors.white),
-          ),
-          onDismissed: (_) {
-            _fcm.deleteNotification(notification.id);
-            setState(() {});
-          },
-          child: Container(
+    return RefreshIndicator(
+      onRefresh: () => _loadLogs(refresh: true),
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: _logs.length + (_hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == _logs.length) {
+            _loadLogs();
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          final log = _logs[index];
+          final success = log['success'] == 1;
+          final createdAt = log['create_DT'] as String? ?? '';
+
+          return Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
-              color: notification.isRead ? Colors.white : const Color(0xFFE8EDF5),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: notification.isRead
-                    ? Colors.grey.shade200
-                    : const Color(0xFF1B2E5C).withValues(alpha: 0.2),
-              ),
+              border: Border.all(color: Colors.grey.shade200),
             ),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(
@@ -115,28 +170,23 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: notification.isRead
-                      ? Colors.grey.shade100
-                      : const Color(0xFF1B2E5C).withValues(alpha: 0.1),
+                  color: success
+                      ? const Color(0xFF1B2E5C).withValues(alpha: 0.1)
+                      : Colors.red.shade50,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  notification.isRead
-                      ? Icons.notifications_none
-                      : Icons.notifications_active,
-                  color: notification.isRead
-                      ? Colors.grey.shade400
-                      : const Color(0xFF1B2E5C),
+                  success ? Icons.notifications_active : Icons.error_outline,
+                  color: success ? const Color(0xFF1B2E5C) : Colors.red,
                   size: 20,
                 ),
               ),
               title: Text(
-                notification.title,
-                style: TextStyle(
+                log['title'] as String? ?? '알림',
+                style: const TextStyle(
                   fontSize: 15,
-                  fontWeight:
-                      notification.isRead ? FontWeight.w500 : FontWeight.w700,
-                  color: const Color(0xFF1B2E5C),
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1B2E5C),
                 ),
               ),
               subtitle: Column(
@@ -144,7 +194,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                 children: [
                   const SizedBox(height: 4),
                   Text(
-                    notification.body,
+                    log['body'] as String? ?? '',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -153,28 +203,39 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    _formatTime(notification.receivedAt),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade400,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        _formatTime(createdAt),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade400,
+                        ),
+                      ),
+                      if (!success) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          '발송 실패',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.red.shade400,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
-              onTap: () {
-                _fcm.markAsRead(notification.id);
-                setState(() {});
-                _showDetail(notification);
-              },
+              onTap: () => _showDetail(log),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
-  void _showDetail(notification) {
+  void _showDetail(Map<String, dynamic> log) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -198,7 +259,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              notification.title,
+              log['title'] as String? ?? '알림',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -206,15 +267,45 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              _formatTime(notification.receivedAt),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+            Row(
+              children: [
+                Text(
+                  _formatTime(log['create_DT'] as String? ?? ''),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: log['success'] == 1
+                        ? Colors.green.shade50
+                        : Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    log['success'] == 1 ? '발송 성공' : '발송 실패',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: log['success'] == 1
+                          ? Colors.green.shade700
+                          : Colors.red.shade700,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             Text(
-              notification.body,
+              log['body'] as String? ?? '',
               style: const TextStyle(fontSize: 15, height: 1.5),
             ),
+            if (log['error_message'] != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                '오류: ${log['error_message']}',
+                style: TextStyle(fontSize: 13, color: Colors.red.shade400),
+              ),
+            ],
             const SizedBox(height: 24),
           ],
         ),
@@ -222,13 +313,19 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     );
   }
 
-  String _formatTime(DateTime dt) {
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inMinutes < 1) return '방금 전';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
-    if (diff.inHours < 24) return '${diff.inHours}시간 전';
-    if (diff.inDays < 7) return '${diff.inDays}일 전';
-    return '${dt.month}/${dt.day}';
+  String _formatTime(String dateStr) {
+    if (dateStr.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+      if (diff.inMinutes < 1) return '방금 전';
+      if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
+      if (diff.inHours < 24) return '${diff.inHours}시간 전';
+      if (diff.inDays < 7) return '${diff.inDays}일 전';
+      return '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return dateStr;
+    }
   }
 }

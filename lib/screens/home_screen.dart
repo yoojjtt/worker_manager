@@ -4,6 +4,7 @@ import '../services/auth_service.dart';
 import '../services/fcm_service.dart';
 import 'my_info/my_info_screen.dart';
 import 'notification_list_screen.dart';
+import 'work/work_menu_screen.dart';
 
 // Design Ref: §6.5 — HomeScreen with BottomNavigationBar (홈/내정보 2탭)
 class HomeScreen extends StatefulWidget {
@@ -18,6 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final _pages = const [
     _HomePlaceholder(),
+    WorkMenuScreen(),
     MyInfoScreen(),
   ];
 
@@ -118,6 +120,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
             label: '홈',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.assignment_outlined),
+            activeIcon: Icon(Icons.assignment),
+            label: '업무관리',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
