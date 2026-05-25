@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../config/api_config.dart';
 import '../../models/user_model.dart';
@@ -334,45 +333,6 @@ class _MyInfoScreenState extends State<MyInfoScreen> {
                         ),
                       ),
                     ]),
-                    const SizedBox(height: 12),
-
-                    // FCM 토큰 (디버깅용)
-                    FutureBuilder<String?>(
-                      future: FcmService().getToken(),
-                      builder: (context, snapshot) {
-                        final token = snapshot.data ?? '토큰 없음';
-                        return _buildSection('FCM 토큰', [
-                          GestureDetector(
-                            onTap: () {
-                              // ignore: deprecated_member_use
-                              Clipboard.setData(ClipboardData(text: token));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('토큰이 복사되었습니다.'),
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            },
-                            child: Text(
-                              token,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey.shade500,
-                                fontFamily: 'monospace',
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '탭하면 복사됩니다',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey.shade400,
-                            ),
-                          ),
-                        ]);
-                      },
-                    ),
                     const SizedBox(height: 24),
 
                     // 비밀번호 변경
