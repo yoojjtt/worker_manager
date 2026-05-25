@@ -4,7 +4,7 @@ const bool isProduction = bool.fromEnvironment('PRODUCTION');
 class ApiConfig {
   static const String baseUrl = isProduction
       ? 'https://main-api.linkerbiz.net'
-      : 'https://main-api.linkerbiz.net';
+      : 'http://localhost:20118';
 
   static const String login = '/api/LB/user/userAccess';
   static const String logout = '/api/LB/user/userAccessOut';

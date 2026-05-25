@@ -161,73 +161,79 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey.shade200),
             ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: success
-                      ? const Color(0xFF1B2E5C).withValues(alpha: 0.1)
-                      : Colors.red.shade50,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  success ? Icons.notifications_active : Icons.error_outline,
-                  color: success ? const Color(0xFF1B2E5C) : Colors.red,
-                  size: 20,
-                ),
-              ),
-              title: Text(
-                log['title'] as String? ?? '알림',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1B2E5C),
-                ),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 4),
-                  Text(
-                    log['body'] as String? ?? '',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Text(
-                        _formatTime(createdAt),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade400,
-                        ),
-                      ),
-                      if (!success) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          '발송 실패',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.red.shade400,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
+            child: InkWell(
               onTap: () => _showDetail(log),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: success
+                            ? const Color(0xFF1B2E5C).withValues(alpha: 0.1)
+                            : Colors.red.shade50,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        success ? Icons.notifications_active : Icons.error_outline,
+                        color: success ? const Color(0xFF1B2E5C) : Colors.red,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            log['title'] as String? ?? '알림',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1B2E5C),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            log['body'] as String? ?? '',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Text(
+                                _formatTime(createdAt),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade400,
+                                ),
+                              ),
+                              if (!success) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  '발송 실패',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.red.shade400,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           );
         },
@@ -238,14 +244,20 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   void _showDetail(Map<String, dynamic> log) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.5,
+        maxChildSize: 0.9,
+        minChildSize: 0.3,
+        builder: (context, scrollController) => SingleChildScrollView(
+          controller: scrollController,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
               child: Container(
@@ -308,6 +320,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
             ],
             const SizedBox(height: 24),
           ],
+        ),
         ),
       ),
     );
