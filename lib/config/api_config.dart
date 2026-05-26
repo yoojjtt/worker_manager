@@ -1,8 +1,9 @@
-// Design Ref: §5.1 — API Base URL + 엔드포인트 중앙 관리
-const bool isProduction = bool.fromEnvironment('PRODUCTION');
+import 'package:flutter/foundation.dart' show kReleaseMode;
 
+// Design Ref: §5.1 — API Base URL + 엔드포인트 중앙 관리
+// Debug(시뮬레이터) → localhost / Release(실기기 배포) → 배포서버
 class ApiConfig {
-  static const String baseUrl = isProduction
+  static const String baseUrl = kReleaseMode
       ? 'https://main-api.linkerbiz.net'
       : 'http://localhost:20118';
 
@@ -21,6 +22,9 @@ class ApiConfig {
 
   // FCM 발송 이력
   static const String fcmLogMy = '/api/LB/fcm/log/my';
+  static const String fcmLogRead = '/api/LB/fcm/log/read';
+  static const String fcmLogReadAll = '/api/LB/fcm/log/readAll';
+  static const String fcmLogUnreadCount = '/api/LB/fcm/log/unreadCount';
 
   // 지급서 OCR + CRUD
   static const String invoiceParse = '/api/vision/invoice/parse';

@@ -1,10 +1,9 @@
-import 'dart:developer' as dev;
-
 import 'package:flutter/material.dart';
 
 import '../config/api_config.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/fcm_service.dart';
 
 class NotificationListScreen extends StatefulWidget {
   const NotificationListScreen({super.key});
@@ -31,7 +30,6 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     if (!refresh && !_hasMore) return;
 
     setState(() => _isLoading = true);
-
     if (refresh) {
       _offset = 0;
       _logs.clear();
@@ -40,13 +38,8 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
 
     try {
       final user = AuthService().currentUser;
-      dev.log('[알림이력] currentUser: ${user?.userId}');
-      if (user == null) {
-        dev.log('[알림이력] 로그인 안 됨, return');
-        return;
-      }
+      if (user == null) return;
 
-      dev.log('[알림이력] API 호출: user_id=${user.userId}, offset=$_offset');
       final data = await ApiService.get(
         ApiConfig.fcmLogMy,
         params: {
@@ -56,15 +49,14 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           'size': '$_size',
         },
       );
-      dev.log('[알림이력] 응답: resultCode=${data['resultCode']}, res=${data['res']}');
 
-      if (data['resultCode'] == '200') {
+      if (data['resultCode'] == '200' && data['res'] != null) {
         final res = Map<String, dynamic>.from(data['res'] as Map);
-        final list = (res['list'] as List)
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
-        final total = res['totalRecords'] as int;
-        dev.log('[알림이력] 조회 성공: ${list.length}건, 전체 $total건');
+        final list = (res['list'] as List?)
+                ?.map((e) => Map<String, dynamic>.from(e as Map))
+                .toList() ??
+            [];
+        final total = (res['totalRecords'] as int?) ?? list.length;
 
         _logs.addAll(list);
         _offset += list.length;
@@ -76,13 +68,30 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           SnackBar(
             content: Text('알림 이력 로드 실패: $e'),
             behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 5),
           ),
         );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _markAllAsRead() async {
+    await FcmService().markAllLogsAsRead();
+    for (final log in _logs) {
+      log['is_read'] = 1;
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _markAsRead(Map<String, dynamic> log) async {
+    if (log['is_read'] == 1) return;
+    final seq = log['seq'] as int?;
+    if (seq == null) return;
+
+    await FcmService().markLogAsRead(seq);
+    setState(() => log['is_read'] = 1);
+    FcmService().fetchUnreadCount();
   }
 
   @override
@@ -101,6 +110,19 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           ),
         ),
         iconTheme: const IconThemeData(color: Color(0xFF1B2E5C)),
+        actions: [
+          if (_logs.any((l) => l['is_read'] != 1))
+            TextButton(
+              onPressed: _markAllAsRead,
+              child: const Text(
+                '모두 읽음',
+                style: TextStyle(
+                  color: Color(0xFF1B2E5C),
+                  fontSize: 14,
+                ),
+              ),
+            ),
+        ],
       ),
       body: _isLoading && _logs.isEmpty
           ? const Center(child: CircularProgressIndicator())
@@ -136,33 +158,53 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   }
 
   Widget _buildList() {
+    // 날짜별 그룹핑
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final log in _logs) {
+      final dateStr = log['create_DT'] as String? ?? '';
+      final label = _dateGroupLabel(dateStr);
+      grouped.putIfAbsent(label, () => []).add(log);
+    }
+
     return RefreshIndicator(
       onRefresh: () => _loadLogs(refresh: true),
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _logs.length + (_hasMore ? 1 : 0),
+        itemCount: _buildItems(grouped).length + (_hasMore ? 1 : 0),
         itemBuilder: (context, index) {
-          if (index == _logs.length) {
-            _loadLogs();
+          final items = _buildItems(grouped);
+          if (index == items.length) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _loadLogs());
             return const Padding(
               padding: EdgeInsets.all(16),
               child: Center(child: CircularProgressIndicator()),
             );
           }
 
-          final log = _logs[index];
-          final success = log['success'] == 1;
-          final createdAt = log['create_DT'] as String? ?? '';
+          final item = items[index];
+          if (item is String) {
+            return _buildDateHeader(item);
+          }
+
+          final log = item as Map<String, dynamic>;
+          final isRead = log['is_read'] == 1;
 
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isRead ? Colors.white : const Color(0xFFE8EDF5),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(
+                color: isRead
+                    ? Colors.grey.shade200
+                    : const Color(0xFF1B2E5C).withValues(alpha: 0.2),
+              ),
             ),
             child: InkWell(
-              onTap: () => _showDetail(log),
+              onTap: () {
+                _markAsRead(log);
+                _showDetail(log);
+              },
               borderRadius: BorderRadius.circular(12),
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -173,14 +215,18 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: success
-                            ? const Color(0xFF1B2E5C).withValues(alpha: 0.1)
-                            : Colors.red.shade50,
+                        color: isRead
+                            ? Colors.grey.shade100
+                            : const Color(0xFF1B2E5C).withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        success ? Icons.notifications_active : Icons.error_outline,
-                        color: success ? const Color(0xFF1B2E5C) : Colors.red,
+                        isRead
+                            ? Icons.notifications_none
+                            : Icons.notifications_active,
+                        color: isRead
+                            ? Colors.grey.shade400
+                            : const Color(0xFF1B2E5C),
                         size: 20,
                       ),
                     ),
@@ -189,13 +235,30 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            log['title'] as String? ?? '알림',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1B2E5C),
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  log['title'] as String? ?? '알림',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: isRead
+                                        ? FontWeight.w500
+                                        : FontWeight.w700,
+                                    color: const Color(0xFF1B2E5C),
+                                  ),
+                                ),
+                              ),
+                              if (!isRead)
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF1B5EC8),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                            ],
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -206,27 +269,12 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Text(
-                                _formatTime(createdAt),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade400,
-                                ),
-                              ),
-                              if (!success) ...[
-                                const SizedBox(width: 8),
-                                Text(
-                                  '발송 실패',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.red.shade400,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ],
+                          Text(
+                            _formatTime(log['create_DT'] as String? ?? ''),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade400,
+                            ),
                           ),
                         ],
                       ),
@@ -237,6 +285,29 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  List<dynamic> _buildItems(Map<String, List<Map<String, dynamic>>> grouped) {
+    final items = <dynamic>[];
+    for (final entry in grouped.entries) {
+      items.add(entry.key); // 날짜 헤더
+      items.addAll(entry.value); // 해당 날짜의 알림들
+    }
+    return items;
+  }
+
+  Widget _buildDateHeader(String label) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: Colors.grey.shade500,
+        ),
       ),
     );
   }
@@ -258,72 +329,60 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              log['title'] as String? ?? '알림',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1B2E5C),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Text(
-                  _formatTime(log['create_DT'] as String? ?? ''),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: log['success'] == 1
-                        ? Colors.green.shade50
-                        : Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    log['success'] == 1 ? '발송 성공' : '발송 실패',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: log['success'] == 1
-                          ? Colors.green.shade700
-                          : Colors.red.shade700,
-                    ),
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              log['body'] as String? ?? '',
-              style: const TextStyle(fontSize: 15, height: 1.5),
-            ),
-            if (log['error_message'] != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                '오류: ${log['error_message']}',
-                style: TextStyle(fontSize: 13, color: Colors.red.shade400),
               ),
+              const SizedBox(height: 20),
+              Text(
+                log['title'] as String? ?? '알림',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1B2E5C),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _formatTime(log['create_DT'] as String? ?? ''),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                log['body'] as String? ?? '',
+                style: const TextStyle(fontSize: 15, height: 1.5),
+              ),
+              const SizedBox(height: 24),
             ],
-            const SizedBox(height: 24),
-          ],
-        ),
+          ),
         ),
       ),
     );
+  }
+
+  String _dateGroupLabel(String dateStr) {
+    if (dateStr.isEmpty) return '기타';
+    try {
+      final dt = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+      final logDate = DateTime(dt.year, dt.month, dt.day);
+
+      if (logDate == today) return '오늘';
+      if (logDate == yesterday) return '어제';
+      if (now.difference(dt).inDays < 7) return '이번 주';
+      return '${dt.month}월 ${dt.day}일';
+    } catch (_) {
+      return '기타';
+    }
   }
 
   String _formatTime(String dateStr) {
@@ -335,7 +394,6 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       if (diff.inMinutes < 1) return '방금 전';
       if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
       if (diff.inHours < 24) return '${diff.inHours}시간 전';
-      if (diff.inDays < 7) return '${diff.inDays}일 전';
       return '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     } catch (_) {
       return dateStr;

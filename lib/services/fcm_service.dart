@@ -64,6 +64,9 @@ class FcmService {
       } catch (_) {}
     }
 
+    // 안읽은 알림 수 조회
+    await fetchUnreadCount();
+
     // Design Ref: §4.4 — 토큰 갱신 시 로그인 상태면 서버 재등록
     _messaging.onTokenRefresh.listen((newToken) {
       dev.log('FCM Token 갱신: $newToken');
@@ -90,6 +93,7 @@ class FcmService {
     dev.log('포그라운드 메시지 수신: ${message.notification?.title}');
     _addNotification(message);
     _showInAppNotification(message);
+    fetchUnreadCount();
   }
 
   void _handleMessageOpenedApp(RemoteMessage message) {
@@ -167,6 +171,50 @@ class FcmService {
 
   void _updateUnreadCount() {
     unreadCount.value = notifications.where((n) => !n.isRead).length;
+  }
+
+  // 서버에서 안읽은 알림 수 조회
+  Future<void> fetchUnreadCount() async {
+    final user = AuthService().currentUser;
+    if (user == null) return;
+    try {
+      final data = await ApiService.get(
+        ApiConfig.fcmLogUnreadCount,
+        params: {
+          'user_id': user.userId,
+          'app_type': 'WORKER_MANAGER',
+        },
+      );
+      if (data['resultCode'] == '200') {
+        unreadCount.value = (data['res'] as int?) ?? 0;
+      }
+    } catch (_) {}
+  }
+
+  // 서버에 읽음 처리
+  Future<void> markLogAsRead(int seq) async {
+    try {
+      await ApiService.put(
+        ApiConfig.fcmLogRead,
+        params: {'seq': '$seq'},
+      );
+    } catch (_) {}
+  }
+
+  // 서버에 전체 읽음 처리
+  Future<void> markAllLogsAsRead() async {
+    final user = AuthService().currentUser;
+    if (user == null) return;
+    try {
+      await ApiService.put(
+        ApiConfig.fcmLogReadAll,
+        params: {
+          'user_id': user.userId,
+          'app_type': 'WORKER_MANAGER',
+        },
+      );
+      unreadCount.value = 0;
+    } catch (_) {}
   }
 
   Future<String?> getToken() async {
