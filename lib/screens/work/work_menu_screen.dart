@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../attendance/checkin_approval_screen.dart';
+import '../attendance/manual_checkin_screen.dart';
+import '../overview/monthly_overview_screen.dart';
 import '../placeholder_screen.dart';
+import '../qr/qr_generate_screen.dart';
 import 'approval_list_screen.dart';
 
-// Design Ref: §5.2 — 업무관리 메뉴 2x2 그리드
+// Design Ref: §5.2 — 업무관리 메뉴 (QR출결 + 결재요청)
 class WorkMenuScreen extends StatelessWidget {
   const WorkMenuScreen({super.key});
 
@@ -16,10 +20,47 @@ class WorkMenuScreen extends StatelessWidget {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => const PlaceholderScreen(
-              title: 'QR 생성',
-              icon: Icons.qr_code,
-            ),
+            builder: (_) => const QrGenerateScreen(),
+          ),
+        ),
+      ),
+      _MenuItem(
+        icon: Icons.how_to_reg,
+        label: '출근 승인',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const CheckinApprovalScreen(),
+          ),
+        ),
+      ),
+      _MenuItem(
+        icon: Icons.edit_note,
+        label: '수기 등록',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const ManualCheckinScreen(),
+          ),
+        ),
+      ),
+      _MenuItem(
+        icon: Icons.receipt_long,
+        label: '결재요청',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const ApprovalListScreen(),
+          ),
+        ),
+      ),
+      _MenuItem(
+        icon: Icons.bar_chart,
+        label: '현황 관리',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const MonthlyOverviewScreen(),
           ),
         ),
       ),
@@ -33,29 +74,6 @@ class WorkMenuScreen extends StatelessWidget {
               title: '안전보고서',
               icon: Icons.health_and_safety,
             ),
-          ),
-        ),
-      ),
-      _MenuItem(
-        icon: Icons.add_task,
-        label: '작업추가',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const PlaceholderScreen(
-              title: '작업추가',
-              icon: Icons.add_task,
-            ),
-          ),
-        ),
-      ),
-      _MenuItem(
-        icon: Icons.receipt_long,
-        label: '결재요청',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const ApprovalListScreen(),
           ),
         ),
       ),

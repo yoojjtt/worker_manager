@@ -42,4 +42,48 @@ class ApiConfig {
   static const String hyunjangRead = '/api/LB/hyunjang/hyunjangRead';
   static const String accountCategoryAll = '/api/LB/accounting/category/all';
   static const String partnerFindAll = '/api/LB/accounting/partner/findAll';
+
+  // Design Ref: §4.1 — QR 관리 (QrService)
+  static const String qrGenerateCheckin = '/api/LB/qr/generateCheckin';
+  static const String qrGenerateCheckout = '/api/LB/qr/generateCheckout';
+  static const String qrReadList = '/api/LB/qr/readQrList';
+  static const String qrInvalidate = '/api/LB/qr/invalidateQr';
+
+  // Design Ref: §4.1 — 출근 승인 (AttendanceService)
+  static const String attReadCheckinList =
+      '/api/LB/attendance/readCheckinList';
+  static const String attApproveCheckin =
+      '/api/LB/attendance/approveCheckin';
+  static const String attRejectCheckin =
+      '/api/LB/attendance/rejectCheckin';
+
+  // 수기 등록
+  static const String attManualCheckin =
+      '/api/LB/attendance/manualCheckin';
+  static const String attManualCheckout =
+      '/api/LB/attendance/manualCheckout';
+  static const String attManualBulk = '/api/LB/attendance/manualBulk';
+
+  // 공수/단가
+  static const String attAdjustKongsu =
+      '/api/LB/attendance/adjustKongsu';
+  static const String attCancelKongsu =
+      '/api/LB/attendance/cancelKongsu';
+  static const String attAdjustDanga = '/api/LB/attendance/adjustDanga';
+
+  // 현황 조회
+  static const String attMonthlyOverview =
+      '/api/LB/attendance/readMonthlyOverview';
+  static const String attDailyOverview =
+      '/api/LB/attendance/readDailyOverview';
+
+  // kongsu 반영
+  static const String attReadSyncStatus =
+      '/api/LB/attendance/readSyncStatus';
+  static const String attSyncToKongsu =
+      '/api/LB/attendance/syncToKongsu';
+
+  // 일용직 근로자 목록
+  static const String dailyEmployeeList =
+      '/api/LB/daily/employee/list';
 }
