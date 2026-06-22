@@ -6,6 +6,7 @@ import '../../models/attendance_model.dart';
 import '../../services/attendance_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/invoice_service.dart';
+import '../../widgets/employee_picker.dart';
 import '../../widgets/hyunjang_picker.dart';
 import '../../widgets/loading_overlay.dart';
 
@@ -31,10 +32,14 @@ class _ManualCheckinScreenState extends State<ManualCheckinScreen>
   final _reasonController = TextEditingController();
   TimeOfDay? _checkinTime;
   List<CheckinRequest> _manualCheckins = [];
+  bool _employeesLoading = false;
+  String? _employeesError;
 
   // 일괄 등록
   final Set<int> _selectedEmployeeKeys = {};
   final _bulkReasonController = TextEditingController();
+  final _bulkSearchController = TextEditingController();
+  String _bulkSearchQuery = '';
 
   bool _isLoading = false;
 
@@ -50,6 +55,7 @@ class _ManualCheckinScreenState extends State<ManualCheckinScreen>
     _tabController.dispose();
     _reasonController.dispose();
     _bulkReasonController.dispose();
+    _bulkSearchController.dispose();
     super.dispose();
   }
 
@@ -72,14 +78,28 @@ class _ManualCheckinScreenState extends State<ManualCheckinScreen>
 
   Future<void> _loadEmployees() async {
     if (_selectedHyunjangKey == null) return;
+    setState(() {
+      _employeesLoading = true;
+      _employeesError = null;
+      _employees = [];
+      _selectedEmployeeKey = null;
+    });
     try {
       _employees = await AttendanceService.readEmployeeList(
         companyKey: _user?.companyKey ?? '',
         hyunjangKey: _selectedHyunjangKey!,
       );
-      if (mounted) setState(() {});
+      if (mounted) setState(() => _employeesLoading = false);
       _loadManualCheckins();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[ManualCheckin] 근로자 로딩 에러: $e');
+      if (mounted) {
+        setState(() {
+          _employeesLoading = false;
+          _employeesError = '$e'.replaceFirst('Exception: ', '');
+        });
+      }
+    }
   }
 
   Future<void> _loadManualCheckins() async {
@@ -330,35 +350,15 @@ class _ManualCheckinScreenState extends State<ManualCheckinScreen>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildCard([
-            _employees.isEmpty
-                ? const InputDecorator(
-                    decoration: InputDecoration(
-                      labelText: '근로자',
-                      border: OutlineInputBorder(),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
-                    child: Text('현장을 먼저 선택해주세요',
-                        style: TextStyle(color: Colors.grey)),
-                  )
-                : DropdownButtonFormField<String>(
-                    value: _selectedEmployeeKey,
-                    decoration: const InputDecoration(
-                      labelText: '근로자',
-                      border: OutlineInputBorder(),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
-                    items: _employees.map((e) {
-                      return DropdownMenuItem(
-                        value: e.seq.toString(),
-                        child: Text(
-                            '${e.employeeName} ${e.employeeCell ?? ''}'),
-                      );
-                    }).toList(),
-                    onChanged: (v) =>
-                        setState(() => _selectedEmployeeKey = v),
-                  ),
+            EmployeePicker(
+              employees: _employees,
+              selectedKey: _selectedEmployeeKey,
+              isLoading: _employeesLoading,
+              errorMessage: _employeesError,
+              onSelected: (key, name) {
+                setState(() => _selectedEmployeeKey = key);
+              },
+            ),
             const SizedBox(height: 12),
             InkWell(
               onTap: () async {
@@ -475,13 +475,52 @@ class _ManualCheckinScreenState extends State<ManualCheckinScreen>
               maxLines: 2,
             ),
             const SizedBox(height: 16),
-            Text(
-              '근로자 선택 (${_selectedEmployeeKeys.length}명)',
-              style:
-                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            // 검색 + 전체선택
+            TextField(
+              controller: _bulkSearchController,
+              onChanged: (v) => setState(() => _bulkSearchQuery = v),
+              decoration: InputDecoration(
+                hintText: '이름 또는 연락처로 검색',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
             ),
             const SizedBox(height: 8),
-            ..._employees.map((e) {
+            Row(
+              children: [
+                Text(
+                  '근로자 선택 (${_selectedEmployeeKeys.length}명)',
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      final filtered = _filteredBulkEmployees;
+                      if (filtered.every(
+                          (e) => _selectedEmployeeKeys.contains(e.seq))) {
+                        for (final e in filtered) {
+                          _selectedEmployeeKeys.remove(e.seq);
+                        }
+                      } else {
+                        for (final e in filtered) {
+                          _selectedEmployeeKeys.add(e.seq);
+                        }
+                      }
+                    });
+                  },
+                  child: const Text('전체 선택', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            ..._filteredBulkEmployees.map((e) {
               return CheckboxListTile(
                 value: _selectedEmployeeKeys.contains(e.seq),
                 onChanged: (v) {
@@ -520,6 +559,14 @@ class _ManualCheckinScreenState extends State<ManualCheckinScreen>
         ],
       ),
     );
+  }
+
+  List<DailyEmployee> get _filteredBulkEmployees {
+    if (_bulkSearchQuery.isEmpty) return _employees;
+    return _employees.where((e) {
+      return e.employeeName.contains(_bulkSearchQuery) ||
+          (e.employeeCell ?? '').contains(_bulkSearchQuery);
+    }).toList();
   }
 
   Widget _buildCard(List<Widget> children) {

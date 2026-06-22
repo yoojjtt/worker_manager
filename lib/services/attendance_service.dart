@@ -1,4 +1,6 @@
 // Design Ref: §4.2 — 출결 관리 서비스 (12 API)
+import 'package:flutter/foundation.dart';
+
 import '../config/api_config.dart';
 import '../models/attendance_model.dart';
 import 'api_service.dart';
@@ -239,10 +241,14 @@ class AttendanceService {
     required String hyunjangKey,
   }) async {
     final response =
-        await ApiService.post(ApiConfig.dailyEmployeeList, {
+        await ApiService.post(ApiConfig.dailyEmployeeRead, {
       'company_key': companyKey,
       'hyunjang_key': hyunjangKey,
+      'delete_YN': 0,
+      'offset': 0,
+      'size': 200,
     });
+    debugPrint('[employeeRead] resultCode=${response['resultCode']}, res=${response['res']}');
     return _handleResponse(
       response,
       (res) =>

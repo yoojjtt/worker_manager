@@ -84,6 +84,6 @@ class ApiConfig {
       '/api/LB/attendance/syncToKongsu';
 
   // 일용직 근로자 목록
-  static const String dailyEmployeeList =
-      '/api/LB/daily/employee/list';
+  static const String dailyEmployeeRead =
+      '/api/LB/dailyEmployee/employeeRead';
 }

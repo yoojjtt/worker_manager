@@ -127,6 +127,31 @@ class _CheckinApprovalScreenState extends State<CheckinApprovalScreen> {
     }
   }
 
+  Future<void> _cancelApproval(CheckinRequest item) async {
+    final reason = await _showReasonDialog('승인 취소 사유', '취소 사유를 입력해주세요.');
+    if (reason == null || reason.isEmpty) return;
+
+    try {
+      await AttendanceService.cancelKongsu(
+        seq: item.seq,
+        changeReason: reason,
+        userId: _user?.userId ?? '',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('승인 취소 완료')),
+        );
+        _loadCheckinList();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
   Future<String?> _showReasonDialog(String title, String hint) async {
     final controller = TextEditingController();
     return showModalBottomSheet<String>(
@@ -441,19 +466,33 @@ class _CheckinApprovalScreenState extends State<CheckinApprovalScreen> {
                 ),
               ],
             ),
-          ] else
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                item.approveStatus == 'APPROVED' ? '✅ 승인됨' : '❌ 거부됨',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: item.approveStatus == 'APPROVED'
-                      ? Colors.green
-                      : Colors.red,
+          ] else ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text(
+                  item.approveStatus == 'APPROVED' ? '✅ 승인됨' : '❌ 거부됨',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: item.approveStatus == 'APPROVED'
+                        ? Colors.green
+                        : Colors.red,
+                  ),
                 ),
-              ),
+                const Spacer(),
+                if (item.approveStatus == 'APPROVED')
+                  OutlinedButton(
+                    onPressed: () => _cancelApproval(item),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.orange,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 6),
+                    ),
+                    child: const Text('승인 취소', style: TextStyle(fontSize: 12)),
+                  ),
+              ],
             ),
+          ],
         ],
       ),
     );
